@@ -1,0 +1,1819 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1" />
+<meta name="theme-color" content="#0ea5e9" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Sarathi" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="description" content="Sarathi — your universal travel guardian. Plan ahead, stay safe, travel smart." />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+<title>Sarathi — Travel Guardian</title>
+<style>
+  /* ============== RESET & BASE ============== */
+  *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; height: 100%; overscroll-behavior-y: contain; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+    font-size: 16px;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  button, input, textarea, select { font: inherit; color: inherit; }
+  input, textarea, select {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    width: 100%;
+    color: var(--fg);
+  }
+  input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea { min-height: 80px; resize: vertical; }
+  button { cursor: pointer; border: none; background: none; }
+
+  /* ============== THEME TOKENS ============== */
+  :root {
+    --bg: #f8fafc;
+    --bg2: #eef2f6;
+    --fg: #0f172a;
+    --muted: #64748b;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --accent: #0ea5e9;
+    --accent2: #0284c7;
+    --good: #10b981;
+    --warn: #f59e0b;
+    --bad: #ef4444;
+    --info: #6366f1;
+    --shadow: 0 4px 16px rgba(15,23,42,.08);
+    --radius: 16px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f172a;
+      --bg2: #1e293b;
+      --fg: #f1f5f9;
+      --muted: #94a3b8;
+      --card: #1e293b;
+      --border: #334155;
+      --accent: #38bdf8;
+      --accent2: #0ea5e9;
+      --shadow: 0 4px 16px rgba(0,0,0,.4);
+    }
+  }
+  body.theme-light { color-scheme: light; }
+  body.theme-dark {
+    color-scheme: dark;
+    --bg:#0f172a; --bg2:#1e293b; --fg:#f1f5f9; --muted:#94a3b8;
+    --card:#1e293b; --border:#334155; --accent:#38bdf8; --accent2:#0ea5e9;
+    --shadow:0 4px 16px rgba(0,0,0,.4);
+  }
+
+  /* ============== LAYOUT ============== */
+  .app { max-width: 720px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; padding-bottom: 88px; }
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
+    background: var(--bg); backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    display: flex; align-items: center; gap: 12px;
+    padding-top: calc(12px + env(safe-area-inset-top));
+  }
+  .topbar .brand { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+  .brand .logo {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: grid; place-items: center; color: #fff; font-weight: 700; flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(14,165,233,.4);
+  }
+  .brand .name { font-weight: 700; font-size: 18px; letter-spacing: -.2px; }
+  .brand .subtitle { font-size: 11px; color: var(--muted); margin-top: -2px; }
+  .icon-btn {
+    width: 40px; height: 40px; border-radius: 12px;
+    display: grid; place-items: center; color: var(--fg);
+    background: var(--card); border: 1px solid var(--border);
+    flex-shrink: 0; transition: transform .1s;
+  }
+  .icon-btn:active { transform: scale(.92); }
+  .sos-btn {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: #fff; border: none; box-shadow: 0 2px 12px rgba(239,68,68,.4);
+    font-weight: 700; padding: 8px 14px; border-radius: 12px;
+    height: 40px; display: flex; align-items: center; gap: 6px;
+  }
+  .sos-btn:active { transform: scale(.95); }
+
+  main { flex: 1; padding: 16px; }
+
+  /* Bottom nav — thumb-friendly */
+  .bottom-nav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+    background: var(--card); border-top: 1px solid var(--border);
+    display: flex; padding-bottom: env(safe-area-inset-bottom);
+    box-shadow: 0 -4px 16px rgba(0,0,0,.06);
+  }
+  .bottom-nav .tab {
+    flex: 1; padding: 10px 4px 12px;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    color: var(--muted); font-size: 11px; font-weight: 500;
+    transition: color .15s;
+    min-height: 60px;
+  }
+  .bottom-nav .tab svg { width: 22px; height: 22px; }
+  .bottom-nav .tab.active { color: var(--accent); }
+  .bottom-nav .tab:active { background: var(--bg2); }
+
+  /* Cards */
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px;
+    box-shadow: var(--shadow); margin-bottom: 14px;
+  }
+  .card h3 { margin: 0 0 8px; font-size: 16px; }
+  .card.gradient {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff; border: none;
+  }
+  .card.gradient .muted { color: rgba(255,255,255,.85); }
+
+  .row { display: flex; gap: 10px; align-items: center; }
+  .row.between { justify-content: space-between; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+
+  .muted { color: var(--muted); font-size: 13px; }
+  .label { font-size: 12px; color: var(--muted); margin: 8px 0 4px; font-weight: 500; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600;
+    background: var(--bg2); color: var(--muted);
+  }
+  .pill.good { background: rgba(16,185,129,.15); color: var(--good); }
+  .pill.warn { background: rgba(245,158,11,.15); color: var(--warn); }
+  .pill.bad  { background: rgba(239,68,68,.15);  color: var(--bad); }
+  .pill.info { background: rgba(99,102,241,.15); color: var(--info); }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 12px 16px; border-radius: 12px; font-weight: 600;
+    background: var(--accent); color: #fff; min-height: 44px;
+    transition: transform .1s, opacity .1s;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn:disabled { opacity: .5; }
+  .btn.ghost { background: var(--bg2); color: var(--fg); }
+  .btn.outline { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+  .btn.danger { background: var(--bad); }
+  .btn.full { width: 100%; }
+  .btn.sm { padding: 8px 12px; min-height: 36px; font-size: 13px; }
+
+  /* Tab content */
+  .view { display: none; animation: fadeIn .25s ease-out; }
+  .view.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  /* Hero/Greeting */
+  .hero {
+    background: linear-gradient(135deg, #0ea5e9, #6366f1);
+    color: #fff; border-radius: var(--radius);
+    padding: 18px; margin-bottom: 14px;
+    box-shadow: 0 4px 16px rgba(14,165,233,.25);
+  }
+  .hero h2 { margin: 0 0 4px; font-size: 22px; }
+  .hero .small { opacity: .9; font-size: 13px; }
+  .hero .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+  .hero .stat { text-align: center; padding: 10px 6px; background: rgba(255,255,255,.15); border-radius: 12px; backdrop-filter: blur(4px); }
+  .hero .stat .v { font-size: 20px; font-weight: 700; }
+  .hero .stat .l { font-size: 10px; opacity: .85; text-transform: uppercase; letter-spacing: .5px; }
+
+  /* Quick actions grid */
+  .qa-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+  .qa {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 12px 6px; display: flex; flex-direction: column; align-items: center; gap: 6px;
+    text-align: center; color: var(--fg); font-size: 11px; font-weight: 500;
+    min-height: 76px;
+    transition: transform .1s;
+  }
+  .qa:active { transform: scale(.95); }
+  .qa svg { width: 24px; height: 24px; color: var(--accent); }
+
+  /* Trip card */
+  .trip-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px; background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; margin-bottom: 10px;
+    transition: transform .1s;
+  }
+  .trip-item:active { transform: scale(.98); }
+  .trip-item .ico {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: grid; place-items: center; color: #fff; flex-shrink: 0;
+  }
+  .trip-item .meta { flex: 1; min-width: 0; }
+  .trip-item .meta .t { font-weight: 600; }
+  .trip-item .meta .d { font-size: 12px; color: var(--muted); }
+
+  /* Checklist */
+  .check-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; margin-bottom: 6px;
+    min-height: 44px;
+  }
+  .check-item input[type=checkbox] { width: 22px; height: 22px; flex-shrink: 0; accent-color: var(--accent); }
+  .check-item.done .label-txt { text-decoration: line-through; color: var(--muted); }
+  .check-item .label-txt { flex: 1; }
+  .check-item .del { color: var(--bad); padding: 4px 8px; }
+
+  /* Forecast */
+  .forecast-day {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px; border-bottom: 1px solid var(--border);
+  }
+  .forecast-day:last-child { border-bottom: none; }
+  .forecast-day .icon-emoji { font-size: 22px; }
+  .forecast-day .temps { font-weight: 600; }
+  .forecast-day .temps .lo { color: var(--muted); font-weight: 400; margin-left: 6px; }
+
+  /* Map */
+  #map { height: 360px; border-radius: var(--radius); border: 1px solid var(--border); }
+  .nearby-list { margin-top: 12px; }
+  .nearby-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .nearby-item:last-child { border-bottom: none; }
+  .nearby-item .nico { font-size: 22px; }
+  .nearby-item .name { font-weight: 500; flex: 1; min-width: 0; }
+  .nearby-item .dist { font-size: 12px; color: var(--muted); }
+
+  /* Modal */
+  .modal-bg {
+    position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 100;
+    display: none; align-items: flex-end; justify-content: center;
+    padding: 0; animation: fadeIn .2s;
+  }
+  .modal-bg.open { display: flex; }
+  .modal {
+    background: var(--card); width: 100%; max-width: 720px;
+    max-height: 90vh; overflow-y: auto;
+    border-radius: 20px 20px 0 0; padding: 20px;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
+    animation: slideUp .25s ease-out;
+  }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .modal h2 { margin: 0 0 12px; }
+  .modal .close-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .modal .close-row .x { font-size: 24px; padding: 4px 10px; color: var(--muted); }
+
+  /* Symptom checker */
+  .symp-chip {
+    display: inline-block; padding: 8px 12px; border-radius: 999px;
+    background: var(--bg2); margin: 4px 4px 4px 0; font-size: 13px;
+    border: 1px solid var(--border); cursor: pointer;
+    transition: all .15s;
+  }
+  .symp-chip.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  .severity {
+    padding: 14px; border-radius: 14px; margin-top: 12px;
+    border-left: 4px solid var(--accent);
+  }
+  .severity.urgent { background: rgba(239,68,68,.1); border-color: var(--bad); }
+  .severity.caution { background: rgba(245,158,11,.1); border-color: var(--warn); }
+  .severity.mild { background: rgba(16,185,129,.1); border-color: var(--good); }
+
+  /* Alerts banner */
+  .alert-banner {
+    background: linear-gradient(90deg, rgba(245,158,11,.15), rgba(245,158,11,.05));
+    border-left: 4px solid var(--warn);
+    padding: 12px 14px; border-radius: 12px; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .alert-banner.urgent {
+    background: linear-gradient(90deg, rgba(239,68,68,.15), rgba(239,68,68,.05));
+    border-color: var(--bad);
+  }
+  .alert-banner .ico { font-size: 22px; flex-shrink: 0; }
+
+  /* Section divider */
+  .sect { display: flex; justify-content: space-between; align-items: baseline; margin: 18px 4px 8px; }
+  .sect h3 { margin: 0; font-size: 15px; font-weight: 700; }
+  .sect a { color: var(--accent); font-size: 13px; font-weight: 500; }
+
+  /* Empty states */
+  .empty {
+    text-align: center; padding: 30px 16px; color: var(--muted);
+  }
+  .empty .em { font-size: 40px; opacity: .5; margin-bottom: 8px; }
+  .empty .et { font-weight: 600; color: var(--fg); margin-bottom: 4px; }
+
+  /* Toast */
+  .toast {
+    position: fixed; left: 50%; bottom: 100px; transform: translateX(-50%);
+    background: var(--fg); color: var(--bg); padding: 10px 16px;
+    border-radius: 999px; font-size: 13px; font-weight: 500;
+    z-index: 200; opacity: 0; pointer-events: none;
+    transition: opacity .2s, transform .2s;
+    box-shadow: 0 4px 16px rgba(0,0,0,.2);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+
+  /* Loader */
+  .loader {
+    display: inline-block; width: 18px; height: 18px;
+    border: 2.5px solid var(--border); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 1s linear infinite;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Med reminder */
+  .med-time {
+    background: var(--bg2); padding: 4px 10px; border-radius: 8px; font-size: 12px;
+    font-family: ui-monospace, monospace; margin-right: 4px;
+  }
+
+  /* Install banner */
+  .install-banner {
+    position: fixed; bottom: 76px; left: 12px; right: 12px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 12px; box-shadow: var(--shadow);
+    z-index: 60; display: none; align-items: center; gap: 10px;
+  }
+  .install-banner.show { display: flex; }
+
+  /* Accessibility */
+  .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">S</div>
+      <div>
+        <div class="name">Sarathi</div>
+        <div class="subtitle" id="topGreeting">Travel Guardian</div>
+      </div>
+    </div>
+    <button class="icon-btn" id="themeToggle" aria-label="Theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+    </button>
+    <button class="sos-btn" id="sosBtn" aria-label="Emergency SOS">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><path d="M12 2L2 22h20L12 2z"/><line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="17" r=".5" fill="currentColor"/></svg>
+      SOS
+    </button>
+  </header>
+
+  <main>
+
+    <!-- ============ HOME VIEW ============ -->
+    <section class="view active" id="view-home">
+      <div class="hero">
+        <h2 id="heroGreet">Welcome back</h2>
+        <div class="small" id="heroSub">Let me look after the trip details — you focus on the journey.</div>
+        <div class="stats">
+          <div class="stat"><div class="v" id="statTrips">0</div><div class="l">Trips</div></div>
+          <div class="stat"><div class="v" id="statTasks">0</div><div class="l">Open Tasks</div></div>
+          <div class="stat"><div class="v" id="statMeds">0</div><div class="l">Meds</div></div>
+        </div>
+      </div>
+
+      <div id="proactiveAlerts"></div>
+
+      <div class="qa-grid">
+        <button class="qa" data-action="new-trip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          New Trip
+        </button>
+        <button class="qa" data-action="checklist">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+          Checklist
+        </button>
+        <button class="qa" data-action="symptoms">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          Symptoms
+        </button>
+        <button class="qa" data-action="nearby">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 2C8 2 5 5 5 9c0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7z"/></svg>
+          Nearby
+        </button>
+      </div>
+
+      <div class="card" id="weatherCard">
+        <div class="row between">
+          <h3>📍 Local Weather</h3>
+          <button class="btn ghost sm" id="refreshLocBtn">Refresh</button>
+        </div>
+        <div id="weatherContent" class="muted">Tap refresh to fetch your location's weather.</div>
+      </div>
+
+      <div class="sect"><h3>Active Trip</h3><a href="#" data-action="trips">View all</a></div>
+      <div id="activeTripBox">
+        <div class="empty">
+          <div class="em">🧭</div>
+          <div class="et">No active trip</div>
+          <div class="muted">Plan one and Sarathi will start guiding.</div>
+          <button class="btn outline sm" style="margin-top:10px;" data-action="new-trip">Plan trip</button>
+        </div>
+      </div>
+
+      <div class="sect"><h3>Today's Reminders</h3></div>
+      <div id="todayReminders"><div class="muted" style="padding:10px;">Nothing scheduled.</div></div>
+    </section>
+
+    <!-- ============ TRIPS VIEW ============ -->
+    <section class="view" id="view-trips">
+      <div class="row between" style="margin-bottom:12px;">
+        <h2 style="margin:0;">My Trips</h2>
+        <button class="btn sm" data-action="new-trip">+ New</button>
+      </div>
+      <div id="tripsList"></div>
+    </section>
+
+    <!-- ============ HEALTH VIEW ============ -->
+    <section class="view" id="view-health">
+      <h2 style="margin:0 0 12px;">Health & Safety</h2>
+
+      <div class="card">
+        <h3>🩺 Symptom Checker</h3>
+        <div class="muted" style="margin-bottom:10px;">Quick rule-based triage. Not a substitute for professional care.</div>
+        <button class="btn full" data-action="symptoms">Open Symptom Checker</button>
+      </div>
+
+      <div class="card">
+        <div class="row between">
+          <h3>💊 Medications</h3>
+          <button class="btn ghost sm" id="addMedBtn">+ Add</button>
+        </div>
+        <div id="medsList"></div>
+      </div>
+
+      <div class="card">
+        <div class="row between">
+          <h3>👥 Emergency Contacts</h3>
+          <button class="btn ghost sm" id="addContactBtn">+ Add</button>
+        </div>
+        <div id="contactsList"></div>
+      </div>
+
+      <div class="card">
+        <h3>🏥 Find Care Nearby</h3>
+        <div class="grid-2" style="margin-top:8px;">
+          <button class="btn ghost" data-nearby="hospital">🏥 Hospitals</button>
+          <button class="btn ghost" data-nearby="pharmacy">💊 Pharmacies</button>
+          <button class="btn ghost" data-nearby="doctors">👨‍⚕️ Clinics</button>
+          <button class="btn ghost" data-nearby="police">🚓 Police</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ MAP VIEW ============ -->
+    <section class="view" id="view-map">
+      <div class="row between" style="margin-bottom:10px;">
+        <h2 style="margin:0;">Map & Nearby</h2>
+        <button class="btn ghost sm" id="locateMeBtn">📍 Locate</button>
+      </div>
+      <div id="map"></div>
+      <div class="grid-4" style="margin-top:12px;">
+        <button class="qa" data-nearby="hospital"><span style="font-size:22px;">🏥</span><span>Hospital</span></button>
+        <button class="qa" data-nearby="pharmacy"><span style="font-size:22px;">💊</span><span>Pharmacy</span></button>
+        <button class="qa" data-nearby="atm"><span style="font-size:22px;">🏧</span><span>ATM</span></button>
+        <button class="qa" data-nearby="restaurant"><span style="font-size:22px;">🍽️</span><span>Food</span></button>
+        <button class="qa" data-nearby="fuel"><span style="font-size:22px;">⛽</span><span>Fuel</span></button>
+        <button class="qa" data-nearby="police"><span style="font-size:22px;">🚓</span><span>Police</span></button>
+        <button class="qa" data-nearby="hotel"><span style="font-size:22px;">🏨</span><span>Hotel</span></button>
+        <button class="qa" data-nearby="toilets"><span style="font-size:22px;">🚻</span><span>Toilet</span></button>
+      </div>
+      <div class="card" style="margin-top:14px;" id="nearbyResultsCard" hidden>
+        <h3 id="nearbyTitle">Nearby</h3>
+        <div id="nearbyList" class="nearby-list"></div>
+      </div>
+    </section>
+
+    <!-- ============ MORE VIEW ============ -->
+    <section class="view" id="view-more">
+      <h2 style="margin:0 0 12px;">More</h2>
+
+      <div class="card">
+        <h3>👤 Profile</h3>
+        <div class="label">Your name (used for personalised greetings)</div>
+        <input id="profileName" placeholder="e.g. Dr. Sandeep" />
+        <div class="label">Home base (city)</div>
+        <input id="profileHome" placeholder="e.g. New Delhi" />
+        <div class="label">Blood group</div>
+        <input id="profileBlood" placeholder="e.g. O+" />
+        <div class="label">Allergies / important notes</div>
+        <textarea id="profileNotes" placeholder="e.g. penicillin allergy, asthma"></textarea>
+        <button class="btn full" id="saveProfileBtn" style="margin-top:10px;">Save Profile</button>
+      </div>
+
+      <div class="card">
+        <h3>⚙️ Preferences</h3>
+        <div class="row between" style="padding:8px 0;">
+          <span>Theme</span>
+          <select id="themePref" style="width:auto;">
+            <option value="auto">Auto</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </div>
+        <div class="row between" style="padding:8px 0;">
+          <span>Temperature units</span>
+          <select id="unitsPref" style="width:auto;">
+            <option value="celsius">°C</option>
+            <option value="fahrenheit">°F</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>📦 Data</h3>
+        <button class="btn ghost full" id="exportBtn" style="margin-bottom:8px;">Export all data (JSON)</button>
+        <button class="btn ghost full" id="importBtn" style="margin-bottom:8px;">Import data</button>
+        <input type="file" id="importFile" accept=".json" hidden />
+        <button class="btn outline full" id="resetBtn" style="color:var(--bad);border-color:var(--bad);">Reset / Clear all data</button>
+      </div>
+
+      <div class="card">
+        <h3>About Sarathi</h3>
+        <div class="muted" style="font-size:13px;">
+          Sarathi is your universal travel guardian — built to plan ahead, watch over you, and help when things go sideways.
+          <br><br>
+          Free, offline-capable, no accounts. Powered by Open-Meteo, OpenStreetMap, and your browser's geolocation.
+          <br><br>
+          <strong>Medical disclaimer:</strong> The symptom checker offers general guidance only and is not a substitute for professional medical advice. In emergencies, contact local services immediately.
+        </div>
+        <div class="muted" style="margin-top:12px;font-size:12px;">v3.0 · made with care 💙</div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav" role="tablist">
+    <button class="tab active" data-view="home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg>
+      Home
+    </button>
+    <button class="tab" data-view="trips">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+      Trips
+    </button>
+    <button class="tab" data-view="health">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+      Health
+    </button>
+    <button class="tab" data-view="map">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+      Map
+    </button>
+    <button class="tab" data-view="more">
+      <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+      More
+    </button>
+  </nav>
+
+</div>
+
+<!-- INSTALL PROMPT -->
+<div class="install-banner" id="installBanner">
+  <div style="flex:1;">
+    <div style="font-weight:600;">Install Sarathi</div>
+    <div class="muted" style="font-size:12px;">Add to home screen for the best experience.</div>
+  </div>
+  <button class="btn sm" id="installBtn">Install</button>
+  <button class="icon-btn" id="installDismiss" style="width:32px;height:32px;">×</button>
+</div>
+
+<!-- MODAL -->
+<div class="modal-bg" id="modalBg" role="dialog" aria-modal="true">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================================
+   SARATHI APP — full client-side PWA
+   Storage: IndexedDB (idb)
+   APIs: Open-Meteo (weather + geocoding), Overpass (OSM POI), Nominatim (reverse-geo)
+   No keys. Offline-friendly. Mobile-first.
+   ========================================================================= */
+
+(function() {
+  'use strict';
+
+  /* ---------- TINY IDB WRAPPER ---------- */
+  const DB_NAME = 'sarathi';
+  const DB_VERSION = 3;
+  const STORES = ['trips', 'checklists', 'meds', 'contacts', 'symptoms', 'settings'];
+  let _db = null;
+
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      if (_db) return resolve(_db);
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        STORES.forEach(s => {
+          if (!db.objectStoreNames.contains(s)) {
+            const store = db.createObjectStore(s, { keyPath: 'id', autoIncrement: true });
+            if (s === 'settings') { /* keyPath used as id */ }
+          }
+        });
+      };
+      req.onsuccess = () => { _db = req.result; resolve(_db); };
+      req.onerror = () => reject(req.error);
+    });
+  }
+  async function dbAll(store) {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const t = db.transaction(store, 'readonly').objectStore(store).getAll();
+      t.onsuccess = () => res(t.result);
+      t.onerror = () => rej(t.error);
+    });
+  }
+  async function dbGet(store, id) {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const t = db.transaction(store, 'readonly').objectStore(store).get(id);
+      t.onsuccess = () => res(t.result);
+      t.onerror = () => rej(t.error);
+    });
+  }
+  async function dbPut(store, val) {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const t = db.transaction(store, 'readwrite').objectStore(store).put(val);
+      t.onsuccess = () => res(t.result);
+      t.onerror = () => rej(t.error);
+    });
+  }
+  async function dbDel(store, id) {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const t = db.transaction(store, 'readwrite').objectStore(store).delete(id);
+      t.onsuccess = () => res();
+      t.onerror = () => rej(t.error);
+    });
+  }
+  async function dbClear(store) {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const t = db.transaction(store, 'readwrite').objectStore(store).clear();
+      t.onsuccess = () => res();
+      t.onerror = () => rej(t.error);
+    });
+  }
+  async function getSetting(k, fallback) {
+    const v = await dbGet('settings', k);
+    return v ? v.value : fallback;
+  }
+  async function setSetting(k, value) {
+    return dbPut('settings', { id: k, value });
+  }
+
+  /* ---------- HELPERS ---------- */
+  const $ = (sel, ctx = document) => ctx.querySelector(sel);
+  const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
+  const fmtDate = (d) => {
+    if (!d) return '';
+    const dt = (d instanceof Date) ? d : new Date(d);
+    return dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  };
+  const fmtTime = (d) => {
+    const dt = (d instanceof Date) ? d : new Date(d);
+    return dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+  const daysBetween = (a, b) => Math.ceil((new Date(b) - new Date(a)) / 86400000);
+  const todayISO = () => new Date().toISOString().split('T')[0];
+
+  function toast(msg, ms = 2200) {
+    const el = $('#toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => el.classList.remove('show'), ms);
+  }
+
+  function openModal(html) {
+    $('#modalContent').innerHTML = html;
+    $('#modalBg').classList.add('open');
+  }
+  function closeModal() { $('#modalBg').classList.remove('open'); }
+  $('#modalBg').addEventListener('click', (e) => { if (e.target.id === 'modalBg') closeModal(); });
+
+  /* ---------- THEME ---------- */
+  async function applyTheme() {
+    const pref = await getSetting('theme', 'auto');
+    document.body.classList.remove('theme-light', 'theme-dark');
+    if (pref === 'light') document.body.classList.add('theme-light');
+    else if (pref === 'dark') document.body.classList.add('theme-dark');
+  }
+  $('#themeToggle').addEventListener('click', async () => {
+    const pref = await getSetting('theme', 'auto');
+    const next = pref === 'auto' ? 'dark' : pref === 'dark' ? 'light' : 'auto';
+    await setSetting('theme', next);
+    applyTheme();
+    toast(`Theme: ${next}`);
+    const sel = $('#themePref'); if (sel) sel.value = next;
+  });
+
+  /* ---------- NAV ---------- */
+  function showView(name) {
+    $$('.view').forEach(v => v.classList.remove('active'));
+    $(`#view-${name}`)?.classList.add('active');
+    $$('.bottom-nav .tab').forEach(t => t.classList.toggle('active', t.dataset.view === name));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (name === 'trips') renderTrips();
+    if (name === 'health') { renderMeds(); renderContacts(); }
+    if (name === 'map') initMap();
+    if (name === 'home') renderHome();
+    if (name === 'more') loadProfile();
+  }
+  $$('.bottom-nav .tab').forEach(t => {
+    t.addEventListener('click', () => showView(t.dataset.view));
+  });
+
+  /* ---------- QUICK ACTIONS ---------- */
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('[data-action]');
+    if (!a) return;
+    e.preventDefault();
+    const action = a.dataset.action;
+    if (action === 'new-trip') openTripForm();
+    else if (action === 'trips') showView('trips');
+    else if (action === 'checklist') openChecklistFromTrip();
+    else if (action === 'symptoms') openSymptomChecker();
+    else if (action === 'nearby') showView('map');
+  });
+
+  /* ---------- WEATHER ---------- */
+  let lastLocation = null;
+
+  async function getLocation(opts = {}) {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) return reject(new Error('Geolocation not available'));
+      navigator.geolocation.getCurrentPosition(
+        (p) => resolve({ lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy }),
+        (err) => reject(err),
+        Object.assign({ enableHighAccuracy: false, timeout: 12000, maximumAge: 60000 }, opts)
+      );
+    });
+  }
+
+  async function reverseGeocode(lat, lon) {
+    try {
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=10`,
+                            { headers: { 'Accept-Language': navigator.language || 'en' } });
+      const j = await r.json();
+      return j.address?.city || j.address?.town || j.address?.village || j.address?.county || j.display_name?.split(',')[0] || 'Your location';
+    } catch { return 'Your location'; }
+  }
+
+  async function geocode(query) {
+    const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=5&language=en&format=json`);
+    const j = await r.json();
+    return (j.results || []).map(x => ({
+      name: x.name, country: x.country, admin: x.admin1,
+      lat: x.latitude, lon: x.longitude
+    }));
+  }
+
+  async function fetchWeather(lat, lon, units = 'celsius') {
+    const tempUnit = units === 'fahrenheit' ? 'fahrenheit' : 'celsius';
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m,apparent_temperature,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max,sunrise,sunset&timezone=auto&temperature_unit=${tempUnit}&forecast_days=7`;
+    const r = await fetch(url);
+    return r.json();
+  }
+
+  const WCODE = {
+    0:['☀️','Clear sky'], 1:['🌤️','Mainly clear'], 2:['⛅','Partly cloudy'], 3:['☁️','Overcast'],
+    45:['🌫️','Fog'], 48:['🌫️','Rime fog'],
+    51:['🌦️','Light drizzle'], 53:['🌦️','Drizzle'], 55:['🌦️','Heavy drizzle'],
+    61:['🌧️','Light rain'], 63:['🌧️','Rain'], 65:['🌧️','Heavy rain'],
+    71:['🌨️','Light snow'], 73:['🌨️','Snow'], 75:['❄️','Heavy snow'],
+    77:['🌨️','Snow grains'],
+    80:['🌦️','Rain showers'], 81:['🌧️','Heavy showers'], 82:['⛈️','Violent showers'],
+    85:['🌨️','Snow showers'], 86:['🌨️','Heavy snow showers'],
+    95:['⛈️','Thunderstorm'], 96:['⛈️','Thunderstorm + hail'], 99:['⛈️','Severe thunderstorm']
+  };
+  function wDesc(code) { return WCODE[code] || ['🌡️', 'Unknown']; }
+
+  async function refreshLocalWeather() {
+    const box = $('#weatherContent');
+    box.innerHTML = '<span class="loader"></span> Locating…';
+    try {
+      const loc = await getLocation();
+      lastLocation = loc;
+      const place = await reverseGeocode(loc.lat, loc.lon);
+      const units = await getSetting('units', 'celsius');
+      const w = await fetchWeather(loc.lat, loc.lon, units);
+      const cur = w.current;
+      const [emoji, desc] = wDesc(cur.weather_code);
+      const u = units === 'fahrenheit' ? '°F' : '°C';
+      const today = w.daily;
+      box.innerHTML = `
+        <div class="row" style="gap:14px;align-items:center;">
+          <div style="font-size:48px;line-height:1;">${emoji}</div>
+          <div style="flex:1;">
+            <div style="font-size:28px;font-weight:700;">${Math.round(cur.temperature_2m)}${u}</div>
+            <div class="muted">${desc} · feels ${Math.round(cur.apparent_temperature)}${u}</div>
+            <div class="muted" style="font-size:12px;">📍 ${place}</div>
+          </div>
+        </div>
+        <div class="grid-3" style="margin-top:12px;">
+          <div><div class="muted" style="font-size:11px;">Wind</div><div style="font-weight:600;">${Math.round(cur.wind_speed_10m)} km/h</div></div>
+          <div><div class="muted" style="font-size:11px;">Humidity</div><div style="font-weight:600;">${cur.relative_humidity_2m}%</div></div>
+          <div><div class="muted" style="font-size:11px;">UV (today)</div><div style="font-weight:600;">${(today.uv_index_max?.[0] ?? 0).toFixed(1)}</div></div>
+        </div>
+        <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:8px;">
+          ${today.time.slice(0,5).map((d, i) => {
+            const [em, ds] = wDesc(today.weather_code[i]);
+            const dayLbl = i === 0 ? 'Today' : new Date(d).toLocaleDateString(undefined, { weekday: 'short' });
+            return `<div class="forecast-day">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span class="icon-emoji">${em}</span>
+                <span style="font-weight:500;min-width:54px;">${dayLbl}</span>
+                <span class="muted" style="font-size:12px;">${ds}</span>
+              </div>
+              <div class="temps">${Math.round(today.temperature_2m_max[i])}°<span class="lo">${Math.round(today.temperature_2m_min[i])}°</span></div>
+            </div>`;
+          }).join('')}
+        </div>
+      `;
+      // Proactive weather alert on home
+      maybeWeatherAlert(today, units);
+    } catch (e) {
+      box.innerHTML = `<div class="muted">Couldn't fetch weather: ${e.message || 'permission denied'}.</div>
+        <button class="btn ghost sm" id="retryLoc" style="margin-top:8px;">Retry</button>`;
+      $('#retryLoc')?.addEventListener('click', refreshLocalWeather);
+    }
+  }
+  $('#refreshLocBtn').addEventListener('click', refreshLocalWeather);
+
+  function maybeWeatherAlert(daily, units) {
+    const alerts = [];
+    const u = units === 'fahrenheit' ? '°F' : '°C';
+    const tmax = daily.temperature_2m_max[0];
+    const pp = daily.precipitation_probability_max[0] ?? 0;
+    const uv = daily.uv_index_max[0] ?? 0;
+    const code = daily.weather_code[0];
+    if (units === 'celsius' && tmax >= 38) alerts.push({ type: 'urgent', icon: '🥵', text: `Extreme heat today (${Math.round(tmax)}${u}). Hydrate, avoid midday sun.` });
+    else if (units === 'fahrenheit' && tmax >= 100) alerts.push({ type: 'urgent', icon: '🥵', text: `Extreme heat today (${Math.round(tmax)}${u}). Hydrate, avoid midday sun.` });
+    if (units === 'celsius' && tmax <= 0) alerts.push({ type: 'warn', icon: '🥶', text: `Freezing today. Dress in layers.` });
+    if (pp >= 70) alerts.push({ type: 'warn', icon: '☔', text: `Rain likely today (${pp}%). Pack an umbrella.` });
+    if ([95,96,99].includes(code)) alerts.push({ type: 'urgent', icon: '⛈️', text: `Thunderstorm risk. Avoid open ground.` });
+    if (uv >= 8) alerts.push({ type: 'warn', icon: '☀️', text: `Very high UV (${uv.toFixed(1)}). Sunscreen + hat.` });
+    renderAlerts(alerts);
+  }
+  function renderAlerts(alerts) {
+    const box = $('#proactiveAlerts');
+    if (!alerts.length) { box.innerHTML = ''; return; }
+    box.innerHTML = alerts.map(a =>
+      `<div class="alert-banner ${a.type === 'urgent' ? 'urgent' : ''}">
+         <span class="ico">${a.icon}</span>
+         <div style="flex:1;font-size:13px;">${a.text}</div>
+       </div>`).join('');
+  }
+
+  /* ---------- TRIPS ---------- */
+  function openTripForm(existing) {
+    const t = existing || { id: null, name:'', dest:'', destLat:null, destLon:null, start: todayISO(), end: '', notes:'', status:'planned' };
+    openModal(`
+      <div class="close-row">
+        <h2>${existing ? 'Edit trip' : 'Plan a trip'}</h2>
+        <button class="x" id="mClose">×</button>
+      </div>
+      <div class="label">Trip name</div>
+      <input id="tName" placeholder="e.g. Manali weekend" value="${escapeHtml(t.name)}" />
+      <div class="label">Destination</div>
+      <input id="tDest" placeholder="City or place" value="${escapeHtml(t.dest)}" />
+      <div id="tDestSuggest"></div>
+      <div class="grid-2">
+        <div><div class="label">Start</div><input type="date" id="tStart" value="${t.start || ''}" /></div>
+        <div><div class="label">End</div><input type="date" id="tEnd" value="${t.end || ''}" /></div>
+      </div>
+      <div class="label">Notes</div>
+      <textarea id="tNotes" placeholder="Anything to remember">${escapeHtml(t.notes || '')}</textarea>
+      <div class="row" style="margin-top:14px;gap:10px;">
+        <button class="btn full" id="tSave">${existing ? 'Save' : 'Create'}</button>
+        ${existing ? '<button class="btn outline" id="tDel" style="color:var(--bad);border-color:var(--bad);">Delete</button>' : ''}
+      </div>
+    `);
+    let pickedLoc = (t.destLat != null) ? { lat: t.destLat, lon: t.destLon, name: t.dest } : null;
+    let suggestTimer;
+    $('#tDest').addEventListener('input', (e) => {
+      pickedLoc = null;
+      clearTimeout(suggestTimer);
+      const q = e.target.value.trim();
+      if (q.length < 2) { $('#tDestSuggest').innerHTML = ''; return; }
+      suggestTimer = setTimeout(async () => {
+        try {
+          const results = await geocode(q);
+          $('#tDestSuggest').innerHTML = results.slice(0,5).map((r,i) =>
+            `<div class="check-item" data-i="${i}" style="cursor:pointer;">
+               <div class="label-txt">${escapeHtml(r.name)}<span class="muted" style="font-size:12px;"> · ${escapeHtml(r.admin || '')}, ${escapeHtml(r.country || '')}</span></div>
+             </div>`).join('');
+          $$('#tDestSuggest .check-item').forEach((el, i) => {
+            el.addEventListener('click', () => {
+              pickedLoc = results[i];
+              $('#tDest').value = `${results[i].name}, ${results[i].country}`;
+              $('#tDestSuggest').innerHTML = '';
+            });
+          });
+        } catch {}
+      }, 350);
+    });
+    $('#mClose').addEventListener('click', closeModal);
+    $('#tSave').addEventListener('click', async () => {
+      const name = $('#tName').value.trim();
+      const dest = $('#tDest').value.trim();
+      if (!name || !dest) { toast('Name and destination required'); return; }
+      const trip = {
+        ...(existing || {}),
+        name,
+        dest,
+        destLat: pickedLoc?.lat ?? t.destLat ?? null,
+        destLon: pickedLoc?.lon ?? t.destLon ?? null,
+        start: $('#tStart').value,
+        end: $('#tEnd').value,
+        notes: $('#tNotes').value.trim(),
+        updatedAt: Date.now()
+      };
+      if (!trip.id) { trip.createdAt = Date.now(); trip.status = 'planned'; }
+      const id = await dbPut('trips', trip);
+      // Auto-create starter checklist if new
+      if (!existing) {
+        await dbPut('checklists', {
+          tripId: id,
+          items: defaultChecklist().map(t => ({ text: t, done: false, id: cryptoRandom() }))
+        });
+      }
+      closeModal();
+      toast(existing ? 'Trip updated' : 'Trip created');
+      renderTrips();
+      renderHome();
+    });
+    if (existing) {
+      $('#tDel').addEventListener('click', async () => {
+        if (!confirm('Delete this trip?')) return;
+        await dbDel('trips', existing.id);
+        // Also delete its checklist
+        const all = await dbAll('checklists');
+        for (const c of all) if (c.tripId === existing.id) await dbDel('checklists', c.id);
+        closeModal();
+        renderTrips(); renderHome();
+        toast('Trip deleted');
+      });
+    }
+  }
+
+  function defaultChecklist() {
+    return [
+      'ID / passport / visa',
+      'Cash & cards',
+      'Phone + charger + power bank',
+      'Medications & first-aid',
+      'Travel insurance details',
+      'Reserved tickets / hotel confirmations',
+      'Comfortable shoes',
+      'Water bottle',
+      'Weather-appropriate clothing',
+      'Emergency contact list',
+      'Home: lock doors, switch off mains',
+      'Inform a family member of itinerary'
+    ];
+  }
+
+  function tripStatus(t) {
+    if (!t.start || !t.end) return 'planned';
+    const today = todayISO();
+    if (t.end < today) return 'completed';
+    if (t.start <= today && t.end >= today) return 'active';
+    return 'upcoming';
+  }
+  function statusPill(s) {
+    if (s === 'active') return '<span class="pill good">● Active</span>';
+    if (s === 'upcoming') return '<span class="pill info">Upcoming</span>';
+    if (s === 'completed') return '<span class="pill">Completed</span>';
+    return '<span class="pill">Planned</span>';
+  }
+
+  async function renderTrips() {
+    const box = $('#tripsList');
+    const trips = (await dbAll('trips')).sort((a,b) => (a.start || '').localeCompare(b.start || ''));
+    if (!trips.length) {
+      box.innerHTML = `<div class="empty">
+        <div class="em">🗺️</div><div class="et">No trips yet</div>
+        <div class="muted">Plan your first journey.</div>
+        <button class="btn outline sm" data-action="new-trip" style="margin-top:10px;">+ New Trip</button>
+      </div>`;
+      return;
+    }
+    box.innerHTML = trips.map(t => {
+      const s = tripStatus(t);
+      const dateLbl = t.start && t.end ? `${fmtDate(t.start)} → ${fmtDate(t.end)}` :
+                     t.start ? `From ${fmtDate(t.start)}` : 'Dates not set';
+      const days = (t.start && t.end) ? daysBetween(t.start, t.end) : null;
+      return `<div class="trip-item" data-id="${t.id}">
+        <div class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+        </div>
+        <div class="meta">
+          <div class="t">${escapeHtml(t.name)} ${statusPill(s)}</div>
+          <div class="d">📍 ${escapeHtml(t.dest)} · ${dateLbl}${days ? ` · ${days}d` : ''}</div>
+        </div>
+      </div>`;
+    }).join('');
+    $$('#tripsList .trip-item').forEach(el => {
+      el.addEventListener('click', () => openTripDetail(parseInt(el.dataset.id)));
+    });
+  }
+
+  async function openTripDetail(id) {
+    const t = await dbGet('trips', id);
+    if (!t) return;
+    const checklists = await dbAll('checklists');
+    let cl = checklists.find(c => c.tripId === id);
+    if (!cl) {
+      cl = { tripId: id, items: defaultChecklist().map(x => ({ text:x, done:false, id: cryptoRandom() })) };
+      cl.id = await dbPut('checklists', cl);
+    }
+    const done = cl.items.filter(i => i.done).length;
+    const total = cl.items.length;
+    const pct = total ? Math.round(done/total*100) : 0;
+
+    let weatherBlock = '<div class="muted">No destination coordinates — open trip and re-pick destination from the suggestions.</div>';
+    let weatherHTML = '';
+    openModal(`
+      <div class="close-row">
+        <h2>${escapeHtml(t.name)}</h2>
+        <button class="x" id="mClose">×</button>
+      </div>
+      <div class="muted" style="margin-bottom:10px;">📍 ${escapeHtml(t.dest)} · ${t.start ? fmtDate(t.start) : '?'} → ${t.end ? fmtDate(t.end) : '?'}</div>
+      <div class="row" style="gap:8px;margin-bottom:14px;">
+        <button class="btn ghost sm" id="editTrip">Edit</button>
+        <button class="btn ghost sm" id="dupTrip">Duplicate</button>
+      </div>
+
+      <div class="card" style="margin:0 0 12px;">
+        <div class="row between">
+          <h3>✅ Checklist (${done}/${total})</h3>
+          <button class="btn ghost sm" id="addItem">+ Item</button>
+        </div>
+        <div style="background:var(--bg2);height:6px;border-radius:3px;overflow:hidden;margin:6px 0 10px;">
+          <div style="background:var(--accent);height:100%;width:${pct}%;transition:width .25s;"></div>
+        </div>
+        <div id="checklistItems"></div>
+      </div>
+
+      <div class="card" style="margin:0 0 12px;" id="tripWeatherCard">
+        <h3>🌤️ Destination weather</h3>
+        <div id="tripWeather" class="muted">Loading…</div>
+      </div>
+
+      ${t.notes ? `<div class="card" style="margin:0 0 12px;"><h3>📝 Notes</h3><div class="muted" style="white-space:pre-wrap;">${escapeHtml(t.notes)}</div></div>` : ''}
+    `);
+
+    function renderChecklistItems() {
+      const box = $('#checklistItems');
+      if (!cl.items.length) { box.innerHTML = '<div class="muted">No items yet.</div>'; return; }
+      box.innerHTML = cl.items.map((it, i) =>
+        `<div class="check-item ${it.done ? 'done' : ''}">
+          <input type="checkbox" ${it.done ? 'checked' : ''} data-i="${i}" />
+          <div class="label-txt">${escapeHtml(it.text)}</div>
+          <button class="del" data-d="${i}" aria-label="Delete">✕</button>
+        </div>`).join('');
+      $$('#checklistItems input[type=checkbox]').forEach(cb => {
+        cb.addEventListener('change', async (e) => {
+          const i = parseInt(e.target.dataset.i);
+          cl.items[i].done = e.target.checked;
+          await dbPut('checklists', cl);
+          openTripDetail(id); // refresh modal w/ new progress
+        });
+      });
+      $$('#checklistItems .del').forEach(d => {
+        d.addEventListener('click', async (e) => {
+          const i = parseInt(e.target.dataset.d);
+          cl.items.splice(i,1);
+          await dbPut('checklists', cl);
+          openTripDetail(id);
+        });
+      });
+    }
+    renderChecklistItems();
+
+    $('#mClose').addEventListener('click', closeModal);
+    $('#editTrip').addEventListener('click', () => openTripForm(t));
+    $('#dupTrip').addEventListener('click', async () => {
+      const copy = { ...t, id: undefined, name: t.name + ' (copy)', start: '', end: '', createdAt: Date.now(), status: 'planned' };
+      await dbPut('trips', copy);
+      closeModal();
+      renderTrips(); renderHome();
+      toast('Duplicated');
+    });
+    $('#addItem').addEventListener('click', async () => {
+      const txt = prompt('What needs doing?');
+      if (!txt) return;
+      cl.items.push({ text: txt.trim(), done: false, id: cryptoRandom() });
+      await dbPut('checklists', cl);
+      openTripDetail(id);
+    });
+
+    // Destination weather
+    if (t.destLat != null && t.destLon != null) {
+      try {
+        const units = await getSetting('units', 'celsius');
+        const w = await fetchWeather(t.destLat, t.destLon, units);
+        const u = units === 'fahrenheit' ? '°F' : '°C';
+        const days = w.daily;
+        $('#tripWeather').innerHTML = days.time.slice(0,7).map((d,i)=> {
+          const [em, ds] = wDesc(days.weather_code[i]);
+          return `<div class="forecast-day">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="icon-emoji">${em}</span>
+              <span style="min-width:54px;font-weight:500;">${i===0?'Today':new Date(d).toLocaleDateString(undefined,{weekday:'short'})}</span>
+              <span class="muted" style="font-size:12px;">${ds}</span>
+            </div>
+            <div class="temps">${Math.round(days.temperature_2m_max[i])}°<span class="lo">${Math.round(days.temperature_2m_min[i])}°</span></div>
+          </div>`;
+        }).join('');
+      } catch {
+        $('#tripWeather').innerHTML = '<div class="muted">Couldn\'t fetch weather.</div>';
+      }
+    } else {
+      $('#tripWeather').innerHTML = '<div class="muted">Re-edit trip and pick a destination from the suggestions to enable weather.</div>';
+    }
+  }
+
+  async function openChecklistFromTrip() {
+    // If there's an active trip, jump to it; else show trips view
+    const trips = await dbAll('trips');
+    const active = trips.find(t => tripStatus(t) === 'active') || trips.find(t => tripStatus(t) === 'upcoming');
+    if (active) openTripDetail(active.id);
+    else showView('trips');
+  }
+
+  /* ---------- HOME ---------- */
+  async function renderHome() {
+    const profile = await getSetting('profile', {});
+    const hr = new Date().getHours();
+    const greet = hr < 5 ? 'Up early' : hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : hr < 21 ? 'Good evening' : 'Good night';
+    const name = profile.name ? `, ${profile.name.split(' ')[0]}` : '';
+    $('#heroGreet').textContent = `${greet}${name}`;
+    $('#topGreeting').textContent = profile.home ? `Home: ${profile.home}` : 'Travel Guardian';
+
+    const trips = await dbAll('trips');
+    const meds = await dbAll('meds');
+    const checklists = await dbAll('checklists');
+    const openTasks = checklists.reduce((acc, c) => acc + (c.items?.filter(i => !i.done).length || 0), 0);
+    $('#statTrips').textContent = trips.length;
+    $('#statTasks').textContent = openTasks;
+    $('#statMeds').textContent = meds.length;
+
+    // Active trip
+    const active = trips.find(t => tripStatus(t) === 'active');
+    const upcoming = trips.filter(t => tripStatus(t) === 'upcoming').sort((a,b) => (a.start||'').localeCompare(b.start||''));
+    const featured = active || upcoming[0];
+    const box = $('#activeTripBox');
+    if (featured) {
+      const s = tripStatus(featured);
+      const cl = checklists.find(c => c.tripId === featured.id);
+      const done = cl?.items.filter(i=>i.done).length || 0;
+      const total = cl?.items.length || 0;
+      const pct = total ? Math.round(done/total*100) : 0;
+      const dleft = featured.start ? daysBetween(todayISO(), featured.start) : null;
+      box.innerHTML = `<div class="card" style="cursor:pointer;" id="featuredTrip">
+        <div class="row between">
+          <h3 style="margin:0;">${escapeHtml(featured.name)} ${statusPill(s)}</h3>
+        </div>
+        <div class="muted" style="margin:4px 0 8px;">📍 ${escapeHtml(featured.dest)} · ${featured.start?fmtDate(featured.start):''}${featured.end?' → '+fmtDate(featured.end):''}</div>
+        ${s === 'upcoming' && dleft != null ? `<div class="pill info">${dleft <= 0 ? 'Starts today' : `${dleft} day${dleft===1?'':'s'} to go`}</div>` : ''}
+        ${total ? `<div style="background:var(--bg2);height:6px;border-radius:3px;overflow:hidden;margin-top:10px;"><div style="background:var(--accent);height:100%;width:${pct}%;"></div></div>
+          <div class="muted" style="font-size:12px;margin-top:4px;">Checklist: ${done}/${total} done</div>` : ''}
+      </div>`;
+      $('#featuredTrip').addEventListener('click', () => openTripDetail(featured.id));
+    } else {
+      box.innerHTML = `<div class="empty">
+        <div class="em">🧭</div>
+        <div class="et">No active trip</div>
+        <div class="muted">Plan one and Sarathi will start guiding.</div>
+        <button class="btn outline sm" style="margin-top:10px;" data-action="new-trip">Plan trip</button>
+      </div>`;
+    }
+
+    // Today's reminders — meds + upcoming trip soon
+    const reminders = [];
+    const now = new Date();
+    for (const m of meds) {
+      for (const t of (m.times || [])) {
+        const [h, mi] = t.split(':').map(Number);
+        const dt = new Date(); dt.setHours(h, mi, 0, 0);
+        const diffMin = (dt - now) / 60000;
+        let when;
+        if (diffMin < -60) when = 'earlier';
+        else if (diffMin < 0) when = 'just now';
+        else if (diffMin < 60) when = `in ${Math.round(diffMin)} min`;
+        else when = `at ${t}`;
+        reminders.push({ icon: '💊', text: `${m.name} (${m.dose}) ${when}`, sortKey: dt - now });
+      }
+    }
+    upcoming.slice(0,2).forEach(t => {
+      const days = t.start ? daysBetween(todayISO(), t.start) : 0;
+      if (days >= 0 && days <= 7) reminders.push({ icon: '🧳', text: `${t.name} starts ${days===0?'today':days===1?'tomorrow':`in ${days} days`}`, sortKey: days });
+    });
+    reminders.sort((a,b) => a.sortKey - b.sortKey);
+    $('#todayReminders').innerHTML = reminders.length
+      ? reminders.slice(0,5).map(r => `<div class="check-item"><span style="font-size:18px;">${r.icon}</span><div class="label-txt">${escapeHtml(r.text)}</div></div>`).join('')
+      : '<div class="muted" style="padding:10px;">Nothing scheduled.</div>';
+  }
+
+  /* ---------- MEDS ---------- */
+  async function renderMeds() {
+    const meds = await dbAll('meds');
+    const box = $('#medsList');
+    if (!meds.length) { box.innerHTML = '<div class="muted" style="padding:8px 0;">No medications saved.</div>'; return; }
+    box.innerHTML = meds.map(m => `
+      <div class="check-item" data-id="${m.id}">
+        <div class="label-txt">
+          <div style="font-weight:600;">${escapeHtml(m.name)}</div>
+          <div class="muted" style="font-size:12px;">${escapeHtml(m.dose||'')} ${(m.times||[]).map(t=>`<span class="med-time">${t}</span>`).join(' ')}</div>
+          ${m.notes ? `<div class="muted" style="font-size:12px;">${escapeHtml(m.notes)}</div>` : ''}
+        </div>
+        <button class="del" data-del="${m.id}">✕</button>
+      </div>
+    `).join('');
+    $$('#medsList [data-del]').forEach(b => b.addEventListener('click', async () => {
+      if (!confirm('Delete medication?')) return;
+      await dbDel('meds', parseInt(b.dataset.del));
+      renderMeds(); renderHome();
+    }));
+  }
+
+  $('#addMedBtn').addEventListener('click', () => {
+    openModal(`
+      <div class="close-row"><h2>Add medication</h2><button class="x" id="mClose">×</button></div>
+      <div class="label">Name</div><input id="mName" placeholder="e.g. Metformin" />
+      <div class="label">Dose</div><input id="mDose" placeholder="e.g. 500 mg" />
+      <div class="label">Times (comma-separated, 24-hour)</div>
+      <input id="mTimes" placeholder="e.g. 08:00, 14:00, 20:00" />
+      <div class="label">Notes</div>
+      <textarea id="mNotes" placeholder="With food, etc."></textarea>
+      <button class="btn full" id="mSave" style="margin-top:12px;">Save</button>
+    `);
+    $('#mClose').addEventListener('click', closeModal);
+    $('#mSave').addEventListener('click', async () => {
+      const name = $('#mName').value.trim();
+      if (!name) { toast('Name required'); return; }
+      const times = $('#mTimes').value.split(',').map(s => s.trim()).filter(Boolean);
+      await dbPut('meds', {
+        name, dose: $('#mDose').value.trim(),
+        times, notes: $('#mNotes').value.trim(), createdAt: Date.now()
+      });
+      closeModal(); toast('Medication added');
+      renderMeds(); renderHome();
+    });
+  });
+
+  /* ---------- CONTACTS ---------- */
+  async function renderContacts() {
+    const cs = await dbAll('contacts');
+    const box = $('#contactsList');
+    if (!cs.length) {
+      box.innerHTML = `<div class="muted" style="padding:8px 0;">No emergency contacts.</div>
+        <div class="muted" style="font-size:12px;">Common: 112 (international SOS), 911 (US), 999 (UK), 112/100 (India).</div>`;
+      return;
+    }
+    box.innerHTML = cs.map(c => `
+      <div class="check-item">
+        <div class="label-txt">
+          <div style="font-weight:600;">${escapeHtml(c.name)} ${c.relation ? `<span class="muted" style="font-weight:400;">· ${escapeHtml(c.relation)}</span>` : ''}</div>
+          <a href="tel:${escapeAttr(c.phone)}" style="color:var(--accent);font-size:13px;">📞 ${escapeHtml(c.phone)}</a>
+        </div>
+        <button class="del" data-del="${c.id}">✕</button>
+      </div>
+    `).join('');
+    $$('#contactsList [data-del]').forEach(b => b.addEventListener('click', async () => {
+      if (!confirm('Delete contact?')) return;
+      await dbDel('contacts', parseInt(b.dataset.del));
+      renderContacts();
+    }));
+  }
+  $('#addContactBtn').addEventListener('click', () => {
+    openModal(`
+      <div class="close-row"><h2>Add contact</h2><button class="x" id="mClose">×</button></div>
+      <div class="label">Name</div><input id="cName" placeholder="e.g. Family doctor" />
+      <div class="label">Relation</div><input id="cRel" placeholder="e.g. spouse, GP" />
+      <div class="label">Phone</div><input id="cPhone" placeholder="+91 ..." inputmode="tel" />
+      <button class="btn full" id="cSave" style="margin-top:12px;">Save</button>
+    `);
+    $('#mClose').addEventListener('click', closeModal);
+    $('#cSave').addEventListener('click', async () => {
+      const name = $('#cName').value.trim();
+      const phone = $('#cPhone').value.trim();
+      if (!name || !phone) { toast('Name and phone required'); return; }
+      await dbPut('contacts', { name, relation: $('#cRel').value.trim(), phone, createdAt: Date.now() });
+      closeModal(); toast('Contact saved');
+      renderContacts();
+    });
+  });
+
+  /* ---------- SOS ---------- */
+  $('#sosBtn').addEventListener('click', async () => {
+    const cs = await dbAll('contacts');
+    const profile = await getSetting('profile', {});
+    let loc = lastLocation;
+    if (!loc) {
+      try { loc = await getLocation({ enableHighAccuracy: true, timeout: 5000 }); } catch {}
+    }
+    const locStr = loc ? `https://www.openstreetmap.org/?mlat=${loc.lat}&mlon=${loc.lon}#map=16/${loc.lat}/${loc.lon}` : null;
+    openModal(`
+      <div class="close-row"><h2 style="color:var(--bad);">🚨 Emergency</h2><button class="x" id="mClose">×</button></div>
+      <div class="card" style="background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3);margin:0 0 12px;">
+        <div style="font-weight:600;margin-bottom:6px;">Universal numbers</div>
+        <div class="row" style="gap:8px;flex-wrap:wrap;">
+          <a class="btn danger sm" href="tel:112">📞 112</a>
+          <a class="btn danger sm" href="tel:911">📞 911</a>
+          <a class="btn danger sm" href="tel:999">📞 999</a>
+          <a class="btn danger sm" href="tel:108">📞 108 (Ambulance IN)</a>
+        </div>
+      </div>
+      ${cs.length ? `<div class="card" style="margin:0 0 12px;">
+        <div style="font-weight:600;margin-bottom:6px;">Your contacts</div>
+        ${cs.map(c => `<a href="tel:${escapeAttr(c.phone)}" class="btn ghost full" style="margin-bottom:6px;justify-content:flex-start;">📞 ${escapeHtml(c.name)} · ${escapeHtml(c.phone)}</a>`).join('')}
+      </div>` : '<div class="muted" style="margin-bottom:12px;">Add emergency contacts in Health → Emergency Contacts.</div>'}
+      <div class="card" style="margin:0 0 12px;">
+        <div style="font-weight:600;margin-bottom:6px;">Quick actions</div>
+        ${locStr ? `<a class="btn full ghost" style="margin-bottom:6px;" target="_blank" rel="noopener" href="${locStr}">🗺️ View my location on map</a>` : '<div class="muted" style="font-size:12px;">Location unavailable.</div>'}
+        <button class="btn full ghost" id="shareLoc" style="margin-bottom:6px;">📤 Share my location</button>
+        <button class="btn full ghost" id="findHospSos">🏥 Find nearest hospital</button>
+      </div>
+      ${profile.blood || profile.notes ? `<div class="card" style="margin:0;">
+        <div style="font-weight:600;margin-bottom:6px;">Show first responders</div>
+        ${profile.name ? `<div><strong>Name:</strong> ${escapeHtml(profile.name)}</div>` : ''}
+        ${profile.blood ? `<div><strong>Blood:</strong> ${escapeHtml(profile.blood)}</div>` : ''}
+        ${profile.notes ? `<div><strong>Notes:</strong> ${escapeHtml(profile.notes)}</div>` : ''}
+      </div>` : ''}
+    `);
+    $('#mClose').addEventListener('click', closeModal);
+    $('#shareLoc')?.addEventListener('click', async () => {
+      if (!locStr) { toast('No location available'); return; }
+      const txt = `I need help. My location: ${locStr}`;
+      if (navigator.share) {
+        try { await navigator.share({ text: txt, title: 'My location' }); } catch {}
+      } else {
+        try { await navigator.clipboard.writeText(txt); toast('Copied — paste into messaging app'); } catch { prompt('Copy this:', txt); }
+      }
+    });
+    $('#findHospSos')?.addEventListener('click', () => { closeModal(); showView('map'); setTimeout(() => searchNearby('hospital'), 400); });
+  });
+
+  /* ---------- SYMPTOM CHECKER (rule-based) ---------- */
+  const SYMPTOMS = [
+    'Fever','High fever (>39°C)','Chills','Cough','Sore throat','Runny nose','Shortness of breath','Chest pain',
+    'Severe chest pain','Palpitations','Headache','Severe headache','Dizziness','Fainting','Confusion','Stiff neck',
+    'Nausea','Vomiting','Diarrhea','Bloody stool','Abdominal pain','Severe abdominal pain','Loss of appetite','Dehydration signs',
+    'Rash','Spreading rash','Joint pain','Muscle pain','Fatigue','Sweating','Insect bite','Animal bite',
+    'Sunburn','Heat exhaustion (heat + weakness)','Cold extremities','Numbness/tingling on one side','Slurred speech','Facial droop',
+    'Severe bleeding','Trauma/injury','Loss of consciousness','Seizure','Severe allergic reaction (hives + breathing trouble)',
+    'Pregnancy + bleeding','Suicidal thoughts','Eye pain or vision loss','Ear pain'
+  ];
+
+  function openSymptomChecker() {
+    openModal(`
+      <div class="close-row"><h2>🩺 Symptom Checker</h2><button class="x" id="mClose">×</button></div>
+      <div class="muted" style="margin-bottom:8px;">Tap symptoms you're experiencing. This is general guidance — when in doubt, see a clinician.</div>
+      <div id="sympChips" style="margin-bottom:12px;">${SYMPTOMS.map((s,i)=>`<span class="symp-chip" data-i="${i}">${escapeHtml(s)}</span>`).join('')}</div>
+      <div class="label">Other notes (optional)</div>
+      <textarea id="sympNotes" placeholder="e.g. since 2 days, after eating street food"></textarea>
+      <button class="btn full" id="sympAssess" style="margin-top:12px;">Assess</button>
+      <div id="sympResult"></div>
+    `);
+    const sel = new Set();
+    $('#mClose').addEventListener('click', closeModal);
+    $$('#sympChips .symp-chip').forEach(c => {
+      c.addEventListener('click', () => {
+        const i = parseInt(c.dataset.i);
+        if (sel.has(i)) { sel.delete(i); c.classList.remove('selected'); }
+        else { sel.add(i); c.classList.add('selected'); }
+      });
+    });
+    $('#sympAssess').addEventListener('click', async () => {
+      const picked = [...sel].map(i => SYMPTOMS[i]);
+      if (!picked.length) { toast('Pick at least one symptom'); return; }
+      const result = assessSymptoms(picked);
+      const sevClass = result.level === 'urgent' ? 'urgent' : result.level === 'caution' ? 'caution' : 'mild';
+      $('#sympResult').innerHTML = `
+        <div class="severity ${sevClass}">
+          <div style="font-weight:700;font-size:16px;margin-bottom:4px;">${result.title}</div>
+          <div style="margin-bottom:8px;">${result.message}</div>
+          <ul style="margin:0;padding-left:18px;">
+            ${result.advice.map(a => `<li>${escapeHtml(a)}</li>`).join('')}
+          </ul>
+          ${result.level === 'urgent' ? `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+            <a class="btn danger sm" href="tel:112">Call 112</a>
+            <button class="btn ghost sm" id="findHospSym">🏥 Hospitals nearby</button>
+          </div>` : ''}
+        </div>
+      `;
+      $('#findHospSym')?.addEventListener('click', () => { closeModal(); showView('map'); setTimeout(()=>searchNearby('hospital'), 400); });
+      // Log
+      await dbPut('symptoms', { ts: Date.now(), symptoms: picked, notes: $('#sympNotes').value.trim(), level: result.level });
+    });
+  }
+
+  function assessSymptoms(picked) {
+    const has = (s) => picked.includes(s);
+    const any = (...arr) => arr.some(has);
+
+    // RED FLAGS — urgent
+    const red = [
+      ['Severe chest pain', 'Severe chest pain may indicate cardiac emergency.'],
+      ['Slurred speech', 'Possible stroke — F.A.S.T. (face, arm, speech, time).'],
+      ['Facial droop', 'Possible stroke — F.A.S.T.'],
+      ['Numbness/tingling on one side', 'Possible stroke or neurological emergency.'],
+      ['Loss of consciousness', 'Loss of consciousness needs immediate evaluation.'],
+      ['Seizure', 'Active or new seizure needs emergency care.'],
+      ['Severe bleeding', 'Severe bleeding — apply pressure, get help.'],
+      ['Severe allergic reaction (hives + breathing trouble)', 'Possible anaphylaxis — use epinephrine if available.'],
+      ['Pregnancy + bleeding', 'Pregnancy with bleeding — urgent obstetric review.'],
+      ['Suicidal thoughts', 'Please reach out — you are not alone.'],
+      ['Stiff neck', 'Stiff neck with fever can suggest meningitis.']
+    ];
+    for (const [s, why] of red) {
+      if (has(s)) {
+        return {
+          level: 'urgent',
+          title: '⚠️ Seek emergency care now',
+          message: why,
+          advice: [
+            'Call local emergency services (112/911/999/108) immediately.',
+            'Don\'t drive yourself if you can avoid it.',
+            'Stay with someone if possible.',
+            'Bring a list of medications and allergies.'
+          ]
+        };
+      }
+    }
+
+    // Combination red flags
+    if (has('Shortness of breath') && (has('Chest pain') || has('Palpitations'))) {
+      return { level: 'urgent', title: '⚠️ Possible cardiac/respiratory emergency',
+        message: 'Breathlessness with chest symptoms warrants urgent evaluation.',
+        advice: ['Call emergency services.', 'Sit upright, loosen tight clothing.', 'Chew aspirin only if advised and not allergic.'] };
+    }
+    if (has('High fever (>39°C)') && (has('Stiff neck') || has('Confusion') || has('Severe headache'))) {
+      return { level: 'urgent', title: '⚠️ Possible meningitis / serious infection',
+        message: 'High fever with neurological signs needs immediate care.',
+        advice: ['Get to ER promptly.', 'Hydrate while travelling there.'] };
+    }
+    if (has('Severe abdominal pain') && (has('Vomiting') || has('Bloody stool'))) {
+      return { level: 'urgent', title: '⚠️ Acute abdomen — seek care',
+        message: 'Severe abdominal pain with vomiting or bleeding needs evaluation today.',
+        advice: ['Don\'t eat/drink before evaluation.', 'Note when pain started and where it hurts most.'] };
+    }
+    if (has('Animal bite')) {
+      return { level: 'urgent', title: '⚠️ Animal bite — rabies risk',
+        message: 'Wash thoroughly with soap and water for 15 min, then seek post-exposure care.',
+        advice: ['Clean wound with soap and water for 15 minutes.', 'Apply antiseptic.', 'Get to a clinic for rabies prophylaxis ASAP — even small bites count.', 'Verify tetanus status.'] };
+    }
+    if (has('Heat exhaustion (heat + weakness)')) {
+      return { level: 'urgent', title: '⚠️ Heat illness',
+        message: 'Heat exhaustion can progress to heat stroke.',
+        advice: ['Move to shade / AC.', 'Cool with water, fans, ice packs to neck/armpits/groin.', 'Sip ORS or water.', 'If confusion or no sweating — call emergency.'] };
+    }
+
+    // CAUTION — see clinician same/next day
+    const cautionConditions = [
+      { test: () => has('Fever') && has('Cough') && has('Shortness of breath'),
+        title: 'Possible chest infection',
+        msg: 'Fever + cough + breathlessness can suggest pneumonia.',
+        advice: ['See a clinician today.', 'Hydrate, rest.', 'Monitor oxygen if you have a pulse oximeter (>94% normal).'] },
+      { test: () => has('Diarrhea') && has('Vomiting') && has('Dehydration signs'),
+        title: 'Likely traveller\'s gastroenteritis with dehydration',
+        msg: 'Replace fluids and electrolytes promptly.',
+        advice: ['Take ORS frequently in small sips.', 'Avoid dairy and high-fat food.', 'See a clinician if blood in stool, high fever, or no improvement in 48h.'] },
+      { test: () => has('Headache') && has('Fever') && !has('Stiff neck'),
+        title: 'Febrile illness',
+        msg: 'Could be viral; in malaria/dengue zones, consider testing.',
+        advice: ['Paracetamol for fever (avoid NSAIDs in dengue zones).', 'Hydrate, rest.', 'See a clinician if fever > 3 days or worsening.'] },
+      { test: () => has('Spreading rash'),
+        title: 'Spreading rash',
+        msg: 'A rapidly spreading rash deserves evaluation.',
+        advice: ['Photograph it for the doctor.', 'Avoid scratching.', 'See a clinician — sooner if with fever or breathing trouble.'] },
+      { test: () => has('Insect bite') && (has('Rash') || has('Fever')),
+        title: 'Possible insect-borne illness',
+        msg: 'In dengue/malaria/Lyme regions, get tested.',
+        advice: ['Note when bitten and onset of symptoms.', 'See a clinician for testing.', 'Hydrate and rest.'] },
+      { test: () => has('Ear pain'),
+        title: 'Ear pain',
+        msg: 'May be otitis or barotrauma after flying/diving.',
+        advice: ['Avoid water in the ear.', 'Yawn or swallow to equalise pressure.', 'See a clinician if severe or with discharge/fever.'] },
+      { test: () => has('Eye pain or vision loss'),
+        title: 'Eye symptoms',
+        msg: 'Sudden vision change or eye pain needs prompt assessment.',
+        advice: ['Avoid rubbing.', 'See an ophthalmologist or ER today.'] }
+    ];
+    for (const c of cautionConditions) {
+      if (c.test()) return { level: 'caution', title: '🟡 ' + c.title, message: c.msg, advice: c.advice };
+    }
+
+    // MILD / self-care
+    return {
+      level: 'mild',
+      title: '🟢 Likely manageable with self-care',
+      message: 'No red flags detected. Monitor closely and seek care if things worsen.',
+      advice: [
+        'Rest and hydrate.',
+        'Paracetamol for fever / mild pain (per dosing on pack).',
+        'Bland diet if GI symptoms.',
+        'Re-check in 24–48 hours; see a clinician if worsening, persisting > 3 days, or new red-flag symptoms.',
+        'In a foreign country, locate the nearest clinic in advance.'
+      ]
+    };
+  }
+
+  /* ---------- MAP & NEARBY ---------- */
+  let map = null, mapMarkers = [], userMarker = null;
+
+  async function initMap() {
+    if (map) { setTimeout(() => map.invalidateSize(), 100); return; }
+    let center = [28.6139, 77.2090]; // Default: New Delhi
+    try {
+      const loc = await getLocation();
+      lastLocation = loc;
+      center = [loc.lat, loc.lon];
+    } catch {}
+    map = L.map('map', { zoomControl: true }).setView(center, 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+    if (lastLocation) addUserMarker(lastLocation);
+    setTimeout(() => map.invalidateSize(), 200);
+  }
+
+  function addUserMarker(loc) {
+    if (!map) return;
+    if (userMarker) userMarker.remove();
+    userMarker = L.circleMarker([loc.lat, loc.lon], {
+      radius: 8, color: '#0ea5e9', weight: 3, fillColor: '#0ea5e9', fillOpacity: .35
+    }).addTo(map).bindPopup('You are here');
+  }
+
+  $('#locateMeBtn').addEventListener('click', async () => {
+    try {
+      const loc = await getLocation({ enableHighAccuracy: true });
+      lastLocation = loc;
+      if (!map) await initMap();
+      map.setView([loc.lat, loc.lon], 15);
+      addUserMarker(loc);
+    } catch (e) { toast('Location unavailable'); }
+  });
+
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-nearby]');
+    if (b) { showView('map'); setTimeout(() => searchNearby(b.dataset.nearby), 200); }
+  });
+
+  const NEARBY_QUERIES = {
+    hospital:   { q: '[amenity=hospital]', label:'Hospitals',  emoji:'🏥' },
+    pharmacy:   { q: '[amenity=pharmacy]', label:'Pharmacies', emoji:'💊' },
+    doctors:    { q: '[amenity=doctors]',  label:'Clinics',    emoji:'👨‍⚕️' },
+    police:     { q: '[amenity=police]',   label:'Police',     emoji:'🚓' },
+    atm:        { q: '[amenity=atm]',      label:'ATMs',       emoji:'🏧' },
+    restaurant: { q: '[amenity=restaurant]',label:'Restaurants',emoji:'🍽️' },
+    fuel:       { q: '[amenity=fuel]',     label:'Fuel',       emoji:'⛽' },
+    hotel:      { q: '[tourism=hotel]',    label:'Hotels',     emoji:'🏨' },
+    toilets:    { q: '[amenity=toilets]',  label:'Toilets',    emoji:'🚻' }
+  };
+
+  async function searchNearby(kind) {
+    const cfg = NEARBY_QUERIES[kind];
+    if (!cfg) return;
+    if (!map) await initMap();
+    const card = $('#nearbyResultsCard');
+    card.hidden = false;
+    $('#nearbyTitle').textContent = `${cfg.emoji} ${cfg.label} nearby`;
+    $('#nearbyList').innerHTML = '<div class="muted"><span class="loader"></span> Searching…</div>';
+    let loc = lastLocation;
+    if (!loc) {
+      try { loc = await getLocation(); lastLocation = loc; addUserMarker(loc); }
+      catch { $('#nearbyList').innerHTML = '<div class="muted">Location unavailable. Tap "Locate" first.</div>'; return; }
+    }
+    const radius = 3000; // meters
+    const ovQuery = `[out:json][timeout:25];(
+      node${cfg.q}(around:${radius},${loc.lat},${loc.lon});
+      way${cfg.q}(around:${radius},${loc.lat},${loc.lon});
+    );out center 30;`;
+    try {
+      const r = await fetch('https://overpass-api.de/api/interpreter', {
+        method:'POST',
+        body: 'data=' + encodeURIComponent(ovQuery)
+      });
+      const j = await r.json();
+      const items = (j.elements || []).map(el => {
+        const lat = el.lat ?? el.center?.lat;
+        const lon = el.lon ?? el.center?.lon;
+        if (lat == null || lon == null) return null;
+        const name = el.tags?.name || el.tags?.brand || cfg.label.replace(/s$/, '');
+        const dist = haversine(loc.lat, loc.lon, lat, lon);
+        return { lat, lon, name, dist, tags: el.tags || {} };
+      }).filter(Boolean).sort((a,b) => a.dist - b.dist).slice(0, 20);
+      // Clear markers
+      mapMarkers.forEach(m => m.remove()); mapMarkers = [];
+      items.forEach(it => {
+        const mk = L.marker([it.lat, it.lon]).addTo(map);
+        mk.bindPopup(`<strong>${escapeHtml(it.name)}</strong><br>${(it.dist/1000).toFixed(2)} km<br>
+          <a href="https://www.openstreetmap.org/?mlat=${it.lat}&mlon=${it.lon}#map=18/${it.lat}/${it.lon}" target="_blank" rel="noopener">Open in map</a>`);
+        mapMarkers.push(mk);
+      });
+      if (items.length) {
+        const bounds = L.latLngBounds([[loc.lat, loc.lon], ...items.map(i => [i.lat, i.lon])]);
+        map.fitBounds(bounds.pad(0.15));
+      }
+      $('#nearbyList').innerHTML = items.length
+        ? items.map((it, i) => `
+          <div class="nearby-item" data-i="${i}">
+            <span class="nico">${cfg.emoji}</span>
+            <div class="name">${escapeHtml(it.name)}${it.tags.opening_hours ? `<div class="muted" style="font-size:11px;">${escapeHtml(it.tags.opening_hours)}</div>` : ''}</div>
+            <div class="dist">${(it.dist/1000).toFixed(2)} km</div>
+          </div>`).join('')
+        : '<div class="muted">Nothing found within 3 km.</div>';
+      $$('#nearbyList .nearby-item').forEach((el, i) => {
+        el.addEventListener('click', () => {
+          const it = items[i];
+          map.setView([it.lat, it.lon], 17);
+          mapMarkers[i]?.openPopup();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+      });
+    } catch (e) {
+      $('#nearbyList').innerHTML = `<div class="muted">Couldn't fetch results: ${escapeHtml(e.message || 'network error')}</div>`;
+    }
+  }
+
+  function haversine(lat1, lon1, lat2, lon2) {
+    const R = 6371000, toRad = x => x * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  /* ---------- PROFILE & PREFS ---------- */
+  async function loadProfile() {
+    const p = await getSetting('profile', {});
+    $('#profileName').value = p.name || '';
+    $('#profileHome').value = p.home || '';
+    $('#profileBlood').value = p.blood || '';
+    $('#profileNotes').value = p.notes || '';
+    $('#themePref').value = await getSetting('theme', 'auto');
+    $('#unitsPref').value = await getSetting('units', 'celsius');
+  }
+  $('#saveProfileBtn').addEventListener('click', async () => {
+    await setSetting('profile', {
+      name: $('#profileName').value.trim(),
+      home: $('#profileHome').value.trim(),
+      blood: $('#profileBlood').value.trim(),
+      notes: $('#profileNotes').value.trim()
+    });
+    toast('Profile saved');
+    renderHome();
+  });
+  $('#themePref').addEventListener('change', async (e) => { await setSetting('theme', e.target.value); applyTheme(); });
+  $('#unitsPref').addEventListener('change', async (e) => { await setSetting('units', e.target.value); refreshLocalWeather(); });
+
+  /* ---------- DATA EXPORT/IMPORT/RESET ---------- */
+  $('#exportBtn').addEventListener('click', async () => {
+    const data = {};
+    for (const s of STORES) data[s] = await dbAll(s);
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `sarathi-backup-${todayISO()}.json`; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast('Exported');
+  });
+  $('#importBtn').addEventListener('click', () => $('#importFile').click());
+  $('#importFile').addEventListener('change', async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    try {
+      const txt = await f.text();
+      const data = JSON.parse(txt);
+      if (!confirm('Import will merge with existing data. Continue?')) return;
+      for (const s of STORES) {
+        if (Array.isArray(data[s])) {
+          for (const row of data[s]) await dbPut(s, row);
+        }
+      }
+      toast('Imported'); renderTrips(); renderHome(); renderMeds(); renderContacts(); loadProfile();
+    } catch { toast('Invalid file'); }
+    e.target.value = '';
+  });
+  $('#resetBtn').addEventListener('click', async () => {
+    if (!confirm('This will delete ALL data. Are you sure?')) return;
+    if (!confirm('Really delete everything?')) return;
+    for (const s of STORES) await dbClear(s);
+    toast('All data cleared');
+    renderTrips(); renderHome(); renderMeds(); renderContacts(); loadProfile();
+  });
+
+  /* ---------- INSTALL PROMPT ---------- */
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (sessionStorageDismissed()) return;
+    $('#installBanner').classList.add('show');
+  });
+  $('#installBtn').addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    $('#installBanner').classList.remove('show');
+  });
+  $('#installDismiss').addEventListener('click', () => {
+    $('#installBanner').classList.remove('show');
+    try { sessionStorage.setItem('sarathiInstallDismissed', '1'); } catch {}
+  });
+  function sessionStorageDismissed() {
+    try { return sessionStorage.getItem('sarathiInstallDismissed') === '1'; } catch { return false; }
+  }
+
+  /* ---------- UTILS ---------- */
+  function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function escapeAttr(s) { return escapeHtml(s); }
+  function cryptoRandom() {
+    if (window.crypto?.getRandomValues) {
+      const arr = new Uint32Array(2); crypto.getRandomValues(arr);
+      return arr[0].toString(36) + arr[1].toString(36);
+    }
+    return Math.random().toString(36).slice(2);
+  }
+
+  /* ---------- BOOT ---------- */
+  async function boot() {
+    await openDB();
+    await applyTheme();
+    await renderHome();
+    // Try to refresh weather automatically
+    refreshLocalWeather().catch(() => {});
+    // Service worker
+    if ('serviceWorker' in navigator) {
+      try { await navigator.serviceWorker.register('sw.js'); } catch {}
+    }
+    // Hash routing
+    const h = location.hash.replace('#','');
+    if (h === 'emergency') $('#sosBtn').click();
+    else if (h === 'new-trip') openTripForm();
+    else if (h === 'health') showView('health');
+  }
+
+  // Add Leaflet script after page load (deferred load, since we already inlined CSS)
+  function loadLeaflet() {
+    return new Promise((resolve) => {
+      if (window.L) return resolve();
+      const s = document.createElement('script');
+      s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      s.crossOrigin = '';
+      s.onload = resolve;
+      s.onerror = resolve; // fail soft — map just won't render
+      document.head.appendChild(s);
+    });
+  }
+
+  // Wrap initMap to ensure leaflet loaded
+  const _initMap = initMap;
+  initMap = async function() { await loadLeaflet(); if (window.L) return _initMap(); else $('#map').innerHTML = '<div class="empty"><div class="em">🌐</div><div class="et">Map needs internet</div><div class="muted">Connect to load tiles.</div></div>'; };
+
+  document.addEventListener('DOMContentLoaded', boot);
+  if (document.readyState !== 'loading') boot();
+
+})();
+</script>
+</body>
+</html>

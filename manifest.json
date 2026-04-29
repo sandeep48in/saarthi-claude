@@ -1,0 +1,46 @@
+{
+  "name": "Sarathi - Travel Guardian",
+  "short_name": "Sarathi",
+  "description": "Your universal travel guardian — plan ahead, stay safe, travel smart.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0ea5e9",
+  "categories": ["travel", "health", "lifestyle", "navigation"],
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Emergency",
+      "short_name": "SOS",
+      "description": "One-tap emergency help",
+      "url": "./index.html#emergency"
+    },
+    {
+      "name": "New Trip",
+      "short_name": "Trip",
+      "description": "Plan a new trip",
+      "url": "./index.html#new-trip"
+    },
+    {
+      "name": "Symptom Check",
+      "short_name": "Health",
+      "description": "Check symptoms",
+      "url": "./index.html#health"
+    }
+  ]
+}
